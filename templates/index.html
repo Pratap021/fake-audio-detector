@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fake Voice Detector</title>
+
+  <!-- ✅ Link to your CSS file -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <div class="fvd-card">
+
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <div class="fvd-header">
+      <span class="fvd-mic-icon">🎙️</span>
+      <h1 class="fvd-title">Fake Voice Detector</h1>
+      <p class="fvd-sub">AI-powered audio authenticity detection</p>
+    </div>
+
+    <!-- ── Flash / Error messages ────────────────────────── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for _, message in messages %}
+          <div class="fvd-flash">⚠ {{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Upload Form ────────────────────────────────────── -->
+    <form id="uploadForm" action="/predict" method="POST" enctype="multipart/form-data">
+
+      <div class="fvd-drop" id="dropZone">
+        <input type="file" name="audio_file" id="audioFile" accept=".wav,.mp3,.ogg"/>
+        <span class="fvd-drop-icon">📁</span>
+        <div class="fvd-drop-text">
+          Drag &amp; drop your audio file here<br>
+          or <span>click to browse</span>
+        </div>
+      </div>
+
+      <div class="fvd-fname" id="fileName">
+        {% if filename %}
+          📎 {{ filename }}
+        {% else %}
+          Supported: .wav &nbsp;&nbsp; .mp3 &nbsp;&nbsp; .ogg
+        {% endif %}
+      </div>
+
+      <button class="fvd-btn" type="submit" id="submitBtn">
+        <div class="fvd-spinner" id="fvdSpinner"></div>
+        <span id="btnText">Analyze Audio</span>
+      </button>
+
+    </form>
+
+    <!-- ── Results (shown only when prediction exists) ────── -->
+    {% if prediction %}
+
+      <hr class="fvd-divider">
+
+      <!-- Waveform -->
+      <div class="fvd-section-label">Waveform Analysis</div>
+      <div class="fvd-wave-box">
+        <canvas id="waveCanvas"></canvas>
+        <div class="fvd-wave-info">
+          <span>0:00</span>
+          <span class="fvd-playhead" id="fvdPlayhead">▶ playing...</span>
+          <span>{{ duration }}s</span>
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="fvd-section-label">Audio Metadata</div>
+      <div class="fvd-metrics">
+
+        <div class="fvd-metric">
+          <div class="fvd-metric-val" style="color: var(--color-purple);">{{ sample_rate }}</div>
+          <div class="fvd-metric-lbl">kHz Sample Rate</div>
+        </div>
+
+        <div class="fvd-metric">
+          <div class="fvd-metric-val" style="color: var(--color-teal);">{{ duration }}s</div>
+          <div class="fvd-metric-lbl">Duration</div>
+        </div>
+
+        <div class="fvd-metric">
+          <div class="fvd-metric-val" style="color: var(--color-amber);">
+            {{ peak_db }}<span style="font-size:0.7rem;font-weight:400"> dB</span>
+          </div>
+          <div class="fvd-metric-lbl">Peak Level</div>
+        </div>
+
+      </div>
+
+      <!-- Detection Result -->
+      <div class="fvd-section-label">Detection Result</div>
+      <div class="fvd-result-row {{ prediction | lower }}">
+
+        <div>
+          <div class="fvd-result-badge {{ prediction | lower }}">
+            {% if prediction == 'REAL' %}✓ Real Voice
+            {% else %}✗ Fake Voice{% endif %}
+          </div>
+          <div class="fvd-result-msg">
+            {% if prediction == 'REAL' %}
+              High confidence — this audio appears authentic.
+            {% else %}
+              Warning — signs of AI synthesis detected.
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- SVG confidence circle -->
+        <svg class="fvd-score-svg" viewBox="0 0 68 68">
+          <circle cx="34" cy="34" r="27"
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            stroke-width="6"/>
+          <circle id="scoreArc"
+            cx="34" cy="34" r="27"
+            fill="none"
+            stroke="{{ '#5dcaa5' if prediction == 'REAL' else '#e24b4a' }}"
+            stroke-width="6"
+            stroke-linecap="round"
+            stroke-dasharray="169.6"
+            stroke-dashoffset="169.6"
+            transform="rotate(-90 34 34)"/>
+          <text x="34" y="39"
+            text-anchor="middle"
+            fill="#ffffff"
+            font-size="13"
+            font-weight="700"
+            font-family="'DM Mono', monospace">{{ score }}%</text>
+        </svg>
+
+      </div>
+
+    {% endif %}
+
+  </div><!-- /.fvd-card -->
+
+  <!-- Data bridge: Flask → JS via data attributes (no Jinja inside script tags) -->
+  {% if prediction %}
+  <div id="fvd-data"
+    data-waveform="{{ waveform_data | e }}"
+    data-score="{{ score | int }}"
+    data-prediction="{{ prediction }}"
+    style="display:none;">
+  </div>
+  {% endif %}
+
+  <!-- JS file loads last -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
